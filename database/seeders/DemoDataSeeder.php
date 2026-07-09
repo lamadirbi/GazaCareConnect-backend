@@ -81,12 +81,28 @@ class DemoDataSeeder extends Seeder
 
         // physician profiles + certificate attachments (real files)
         foreach ($physicians as $doc) {
-            $profile = PhysicianProfile::firstOrCreate(
+            $isDemoPhysician = in_array($doc->email, [
+                'dr.ahmad@example.com',
+                'dr.sara@example.com',
+                'dr.mohammad@example.com',
+            ], true);
+
+            $profile = PhysicianProfile::updateOrCreate(
                 ['user_id' => $doc->id],
-                PhysicianProfile::factory()->make(['user_id' => $doc->id])->toArray()
+                array_merge(
+                    PhysicianProfile::factory()->make(['user_id' => $doc->id])->toArray(),
+                    $isDemoPhysician
+                        ? [
+                            'verification_status' => PhysicianProfile::STATUS_APPROVED,
+                            'verified_at' => now(),
+                            'verified_by' => $admin->id,
+                            'rejection_reason' => null,
+                        ]
+                        : []
+                )
             );
 
-            if (! $profile->wasRecentlyCreated) {
+            if (is_array($profile->certificate_file_ids) && count($profile->certificate_file_ids) > 0) {
                 continue;
             }
 
@@ -129,6 +145,7 @@ class DemoDataSeeder extends Seeder
             $c = Consultation::factory()->create([
                 'patient_id' => $patient->id,
                 'physician_id' => null,
+                'assignment_mode' => Consultation::MODE_QUEUE,
                 'status' => 'pending',
                 'physician_response' => null,
                 'responded_at' => null,
@@ -146,6 +163,7 @@ class DemoDataSeeder extends Seeder
             $c = Consultation::factory()->create([
                 'patient_id' => $patient->id,
                 'physician_id' => $physician->id,
+                'assignment_mode' => random_int(0, 1) ? Consultation::MODE_QUEUE : Consultation::MODE_DIRECT,
                 'status' => $status,
                 'physician_response' => $hasResponse ? fake()->paragraphs(random_int(1, 2), true) : null,
                 'responded_at' => $hasResponse ? now()->subDays(random_int(0, 10)) : null,

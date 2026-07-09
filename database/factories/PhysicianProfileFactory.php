@@ -30,6 +30,7 @@ class PhysicianProfileFactory extends Factory
                 'الطب النفسي',
             ]),
             'certificate' => $this->faker->sentence(10),
+            'verification_status' => PhysicianProfile::STATUS_PENDING,
         ];
     }
 }

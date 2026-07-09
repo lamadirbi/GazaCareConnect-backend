@@ -1,10 +1,13 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\MedicalFileController;
 use App\Http\Controllers\Api\MedicalProfileController;
 use App\Http\Controllers\Api\PhysicianProfileController;
+use App\Http\Controllers\Api\PlatformStatsController;
+use App\Http\Controllers\Api\VerifiedPhysicianController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
@@ -25,10 +28,11 @@ Route::get('/run-migrations', function () {
 });
 
 Route::prefix('v1')->group(function () {
+    Route::get('/platform-stats', [PlatformStatsController::class, 'index']);
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/login', [AuthController::class, 'login']);
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
@@ -40,19 +44,30 @@ Route::prefix('v1')->group(function () {
         Route::put('/physician-profile', [PhysicianProfileController::class, 'update'])
             ->middleware('role:physician');
 
+        Route::get('/verified-physicians', [VerifiedPhysicianController::class, 'index']);
+        Route::get('/verified-physicians/{physician}', [VerifiedPhysicianController::class, 'show']);
+
         Route::post('/medical-files', [MedicalFileController::class, 'store']);
         Route::get('/medical-files/{medicalFile}/download', [MedicalFileController::class, 'download']);
 
         Route::get('/consultations', [ConsultationController::class, 'indexForMe']);
         Route::get('/consultations/queue', [ConsultationController::class, 'queue'])
-            ->middleware('role:physician');
+            ->middleware(['role:physician', 'physician.verified']);
         Route::get('/consultations/{consultation}', [ConsultationController::class, 'show']);
         Route::post('/consultations/{consultation}/claim', [ConsultationController::class, 'claim'])
-            ->middleware('role:physician');
+            ->middleware(['role:physician', 'physician.verified']);
         Route::post('/consultations', [ConsultationController::class, 'store'])
             ->middleware('role:patient');
         Route::post('/consultations/{consultation}/respond', [ConsultationController::class, 'respond'])
-            ->middleware('role:physician');
+            ->middleware(['role:physician', 'physician.verified']);
+
+        Route::prefix('admin')->middleware('role:admin')->group(function () {
+            Route::get('/users', [AdminController::class, 'users']);
+            Route::patch('/users/{user}/disabled', [AdminController::class, 'setUserDisabled']);
+            Route::get('/physicians/pending', [AdminController::class, 'pendingPhysicians']);
+            Route::get('/physicians', [AdminController::class, 'physicians']);
+            Route::post('/physicians/{physicianProfile}/approve', [AdminController::class, 'approvePhysician']);
+            Route::post('/physicians/{physicianProfile}/reject', [AdminController::class, 'rejectPhysician']);
+        });
     });
 });
-

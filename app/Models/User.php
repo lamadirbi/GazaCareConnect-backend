@@ -31,6 +31,8 @@ class User extends Authenticatable
         'password',
         'role',
         'phone',
+        'is_disabled',
+        'disabled_at',
     ];
 
     /**
@@ -53,6 +55,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_disabled' => 'boolean',
+            'disabled_at' => 'datetime',
         ];
     }
 
@@ -87,5 +91,17 @@ class User extends Authenticatable
         return $this->hasMany(MedicalFile::class, 'uploaded_by_user_id');
     }
 
-    // caregiver feature removed
+    public function isActive(): bool
+    {
+        return ! $this->is_disabled;
+    }
+
+    public function isVerifiedPhysician(): bool
+    {
+        if ($this->role !== self::ROLE_PHYSICIAN) {
+            return false;
+        }
+
+        return $this->physicianProfile?->verification_status === PhysicianProfile::STATUS_APPROVED;
+    }
 }

@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureRole::class,
+            'active' => \App\Http\Middleware\EnsureUserIsActive::class,
+            'physician.verified' => \App\Http\Middleware\EnsurePhysicianVerified::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

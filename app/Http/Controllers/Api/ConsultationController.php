@@ -9,6 +9,7 @@ use App\Models\PhysicianProfile;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 
 class ConsultationController extends Controller
 {
@@ -18,6 +19,14 @@ class ConsultationController extends Controller
         if ($pp instanceof PhysicianProfile) {
             $pp->hydrateCertificateFilesRelation();
         }
+    }
+
+    protected function verifiedPhysicianQuery()
+    {
+        return User::query()
+            ->where('role', User::ROLE_PHYSICIAN)
+            ->where('is_disabled', false)
+            ->whereHas('physicianProfile', fn ($q) => $q->where('verification_status', PhysicianProfile::STATUS_APPROVED));
     }
 
     public function queue(Request $request)
@@ -31,6 +40,7 @@ class ConsultationController extends Controller
 
         $items = Consultation::query()
             ->whereNull('physician_id')
+            ->where('assignment_mode', Consultation::MODE_QUEUE)
             ->where('status', 'pending')
             ->with([
                 'patient:id,name,email,role',
@@ -49,6 +59,10 @@ class ConsultationController extends Controller
 
         if ($user->role !== User::ROLE_PHYSICIAN) {
             return response()->json(['message' => 'غير مصرح'], 403);
+        }
+
+        if ($consultation->assignment_mode === Consultation::MODE_DIRECT) {
+            return response()->json(['message' => 'هذه استشارة موجّهة لطبيب محدد ولا يمكن استلامها من الطابور.'], 422);
         }
 
         if ($consultation->status !== 'pending') {
@@ -102,6 +116,9 @@ class ConsultationController extends Controller
 
         $allowed = false;
         if ($user->role === User::ROLE_PHYSICIAN) {
+            if (! $user->isVerifiedPhysician()) {
+                return response()->json(['message' => 'حسابك بانتظار موافقة الإدارة.'], 403);
+            }
             $allowed = $consultation->physician_id === null || $consultation->physician_id === $user->id;
         } else {
             $allowed = $consultation->patient_id === $user->id;
@@ -119,7 +136,6 @@ class ConsultationController extends Controller
             'medicalFiles:id,owner_user_id,uploaded_by_user_id,consultation_id,original_name,mime_type,size_bytes,file_kind,created_at',
         ]);
 
-        // إن وُجد طبيب معيّن لكن relation فارغة (بيانات قديمة أو حذف مستخدم ثم استعادته)، نحمّل الطبيب صراحةً.
         if ($consultation->physician_id !== null && $consultation->physician === null) {
             $consultation->setRelation(
                 'physician',
@@ -153,12 +169,35 @@ class ConsultationController extends Controller
             'question_text' => ['required', 'string', 'min:10'],
             'file_ids' => ['nullable', 'array'],
             'file_ids.*' => ['integer', 'exists:medical_files,id'],
+            'assignment_mode' => ['nullable', 'string', Rule::in([
+                Consultation::MODE_QUEUE,
+                Consultation::MODE_DIRECT,
+            ])],
+            'physician_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
+
+        $mode = $data['assignment_mode'] ?? Consultation::MODE_QUEUE;
+        $physicianId = $data['physician_id'] ?? null;
+
+        if ($mode === Consultation::MODE_DIRECT) {
+            if (! $physicianId) {
+                return response()->json(['message' => 'يجب اختيار طبيب موثّق عند الإرسال المباشر.'], 422);
+            }
+
+            $physician = $this->verifiedPhysicianQuery()->whereKey($physicianId)->first();
+            if (! $physician) {
+                return response()->json(['message' => 'الطبيب المختار غير متاح أو غير موثّق.'], 422);
+            }
+        } elseif ($physicianId) {
+            return response()->json(['message' => 'لا يمكن تحديد طبيب مع وضع الطابور العام.'], 422);
+        }
 
         $patientId = $user->id;
 
         $consultation = Consultation::create([
             'patient_id' => $patientId,
+            'physician_id' => $mode === Consultation::MODE_DIRECT ? $physicianId : null,
+            'assignment_mode' => $mode,
             'question_text' => $data['question_text'],
             'status' => 'pending',
             'submitted_at' => Carbon::now(),
@@ -171,7 +210,11 @@ class ConsultationController extends Controller
         }
 
         return response()->json([
-            'consultation' => $consultation->load(['patient:id,name,role']),
+            'consultation' => $consultation->load([
+                'patient:id,name,role',
+                'physician:id,name,role',
+                'physician.physicianProfile',
+            ]),
         ], 201);
     }
 
@@ -200,8 +243,6 @@ class ConsultationController extends Controller
             $consultation->status = 'completed';
         }
         $consultation->save();
-
-        // In later increment: broadcast real-time notification to patient here.
 
         $consultation->load([
             'patient:id,name,role',

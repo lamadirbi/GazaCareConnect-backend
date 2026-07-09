@@ -38,7 +38,7 @@ class AuthController extends Controller
 
         $user = User::create([
             'name' => $data['name'],
-            'email' => $data['email'],
+            'email' => strtolower(trim($data['email'])),
             'password' => $data['password'],
             'role' => $data['role'] ?? User::ROLE_PATIENT,
             'phone' => $data['phone'] ?? null,
@@ -49,6 +49,7 @@ class AuthController extends Controller
                 'user_id' => $user->id,
                 'specialty' => $data['physician_specialty'],
                 'certificate' => $data['physician_certificate'],
+                'verification_status' => PhysicianProfile::STATUS_PENDING,
             ]);
         }
 
@@ -68,10 +69,16 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
+        $email = strtolower(trim($data['email']));
+
         /** @var User|null $user */
-        $user = User::where('email', $data['email'])->first();
+        $user = User::where('email', $email)->first();
         if (!$user || !Hash::check($data['password'], $user->password)) {
             return response()->json(['message' => 'بيانات الدخول غير صحيحة'], 422);
+        }
+
+        if ($user->is_disabled) {
+            return response()->json(['message' => 'تم تعطيل هذا الحساب. تواصل مع الإدارة.'], 403);
         }
 
         $user->load('physicianProfile');

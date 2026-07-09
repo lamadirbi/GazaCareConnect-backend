@@ -11,9 +11,13 @@ class Consultation extends Model
 {
     use HasFactory;
 
+    public const MODE_QUEUE = 'queue';
+    public const MODE_DIRECT = 'direct';
+
     protected $fillable = [
         'patient_id',
         'physician_id',
+        'assignment_mode',
         'question_text',
         'status',
         'submitted_at',

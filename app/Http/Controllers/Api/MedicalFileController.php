@@ -63,7 +63,10 @@ class MedicalFileController extends Controller
         $user = $request->user();
 
         $allowed = false;
-        if ($user->role === User::ROLE_PHYSICIAN) {
+        if ($user->role === User::ROLE_ADMIN) {
+            $owner = User::query()->whereKey($medicalFile->owner_user_id)->first();
+            $allowed = $owner?->role === User::ROLE_PHYSICIAN;
+        } elseif ($user->role === User::ROLE_PHYSICIAN) {
             // ملفات الاستشارة، أو ملفات يمتلكها الطبيب (مثل مرفق الشهادة)
             $allowed = $medicalFile->consultation_id !== null
                 || $medicalFile->owner_user_id === $user->id;

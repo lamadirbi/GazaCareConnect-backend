@@ -47,6 +47,7 @@ class PhysicianProfileController extends Controller
             'certificate_file_id' => ['nullable', 'integer', 'exists:medical_files,id'],
             'certificate_file_ids' => ['nullable', 'array', 'max:20'],
             'certificate_file_ids.*' => ['integer', 'distinct', 'exists:medical_files,id'],
+            'resubmit' => ['sometimes', 'boolean'],
         ]);
 
         $profile = PhysicianProfile::firstOrCreate(
@@ -85,7 +86,9 @@ class PhysicianProfileController extends Controller
             $profile->certificate_file_ids = $id ? [(int) $id] : [];
         }
 
-        $shouldResubmit = (bool) $request->boolean('resubmit');
+        $shouldResubmit = array_key_exists('resubmit', $data)
+            ? (bool) $data['resubmit']
+            : $request->boolean('resubmit');
 
         if ($shouldResubmit && $profile->verification_status !== PhysicianProfile::STATUS_APPROVED) {
             $profile->verification_status = PhysicianProfile::STATUS_PENDING;

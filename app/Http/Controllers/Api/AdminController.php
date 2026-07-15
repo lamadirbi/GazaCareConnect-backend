@@ -29,7 +29,9 @@ class AdminController extends Controller
             $query->where('is_disabled', false);
         }
 
-        return response()->json($query->paginate(30));
+        $perPage = min(100, max(1, (int) $request->query('per_page', 30)));
+
+        return response()->json($query->paginate($perPage));
     }
 
     public function setUserDisabled(Request $request, User $user)

@@ -37,6 +37,7 @@ class DemoDataSeeder extends Seeder
             ['name' => 'د. أحمد', 'email' => 'dr.ahmad@example.com'],
             ['name' => 'د. سارة', 'email' => 'dr.sara@example.com'],
             ['name' => 'د. محمد', 'email' => 'dr.mohammad@example.com'],
+            ['name' => 'د. معلّق اختبار', 'email' => 'dr.pending.uat@example.com'],
         ])->map(fn (array $row) => User::updateOrCreate(
             ['email' => $row['email']],
             [
@@ -87,6 +88,8 @@ class DemoDataSeeder extends Seeder
                 'dr.mohammad@example.com',
             ], true);
 
+            $isPendingUat = $doc->email === 'dr.pending.uat@example.com';
+
             $profile = PhysicianProfile::updateOrCreate(
                 ['user_id' => $doc->id],
                 array_merge(
@@ -98,7 +101,16 @@ class DemoDataSeeder extends Seeder
                             'verified_by' => $admin->id,
                             'rejection_reason' => null,
                         ]
-                        : []
+                        : ($isPendingUat
+                            ? [
+                                'specialty' => 'طب الأسرة',
+                                'certificate' => 'شهادة اختبار UAT معلّق',
+                                'verification_status' => PhysicianProfile::STATUS_PENDING,
+                                'verified_at' => null,
+                                'verified_by' => null,
+                                'rejection_reason' => null,
+                            ]
+                            : [])
                 )
             );
 

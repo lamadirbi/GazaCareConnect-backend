@@ -180,10 +180,29 @@ class ConsultationController extends Controller
 
         $data = $request->validate([
             'question_text' => ['required', 'string', 'min:10'],
+            'file_ids' => ['nullable', 'array'],
+            'file_ids.*' => ['integer', 'exists:medical_files,id'],
         ]);
 
         $consultation->question_text = $data['question_text'];
         $consultation->save();
+
+        if (array_key_exists('file_ids', $data)) {
+            $fileIds = collect($data['file_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
+
+            MedicalFile::query()
+                ->where('consultation_id', $consultation->id)
+                ->where('owner_user_id', $user->id)
+                ->when($fileIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $fileIds->all()))
+                ->update(['consultation_id' => null]);
+
+            if ($fileIds->isNotEmpty()) {
+                MedicalFile::query()
+                    ->whereIn('id', $fileIds->all())
+                    ->where('owner_user_id', $user->id)
+                    ->update(['consultation_id' => $consultation->id]);
+            }
+        }
 
         return response()->json([
             'consultation' => $consultation->fresh()->load([

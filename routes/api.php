@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\MedicalFileController;
 use App\Http\Controllers\Api\MedicalProfileController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PhysicianProfileController;
 use App\Http\Controllers\Api\PlatformStatsController;
 use App\Http\Controllers\Api\VerifiedPhysicianController;
@@ -38,6 +39,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+        Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 
         Route::get('/medical-profile', [MedicalProfileController::class, 'show']);
         Route::put('/medical-profile', [MedicalProfileController::class, 'update']);

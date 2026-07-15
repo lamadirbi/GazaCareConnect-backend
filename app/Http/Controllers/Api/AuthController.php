@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PhysicianProfile;
 use App\Models\User;
+use App\Services\AppNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -52,6 +53,14 @@ class AuthController extends Controller
                 'certificate' => $data['physician_certificate'],
                 'verification_status' => PhysicianProfile::STATUS_PENDING,
             ]);
+
+            AppNotifier::notifyAdmins(
+                'طلب توثيق طبيب جديد',
+                "الدكتور {$user->name} سجّل وينتظر مراجعة الشهادة.",
+                '/admin/physicians',
+                'physician_pending',
+                ['user_id' => $user->id],
+            );
         }
 
         $user->load('physicianProfile');

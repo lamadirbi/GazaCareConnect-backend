@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PhysicianProfile;
 use App\Models\User;
+use App\Services\AppNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -57,6 +58,13 @@ class AdminController extends Controller
 
         if ($data['disabled']) {
             $user->tokens()->delete();
+            AppNotifier::notify(
+                $user,
+                'تم تعطيل حسابك',
+                'تم تعطيل حسابك من قبل الإدارة. تواصل مع الدعم إذا كان ذلك بالخطأ.',
+                '/login',
+                'account_disabled',
+            );
         }
 
         return response()->json([
@@ -120,6 +128,16 @@ class AdminController extends Controller
         $physicianProfile->load('user:id,name,email,phone,role,is_disabled,created_at');
         $physicianProfile->hydrateCertificateFilesRelation();
 
+        if ($physicianProfile->user) {
+            AppNotifier::notify(
+                $physicianProfile->user,
+                'تم توثيق حسابك',
+                'وافقت الإدارة على طلب توثيق حسابك كطبيب. يمكنك الآن استقبال الاستشارات.',
+                '/physician/dashboard',
+                'physician_approved',
+            );
+        }
+
         return response()->json([
             'physician_profile' => $physicianProfile,
         ]);
@@ -142,6 +160,16 @@ class AdminController extends Controller
 
         $physicianProfile->load('user:id,name,email,phone,role,is_disabled,created_at');
         $physicianProfile->hydrateCertificateFilesRelation();
+
+        if ($physicianProfile->user) {
+            AppNotifier::notify(
+                $physicianProfile->user,
+                'تم رفض طلب التوثيق',
+                'رُفض طلب توثيق حسابك. يمكنك مراجعة السبب وإعادة الإرسال.',
+                '/physician/dashboard',
+                'physician_rejected',
+            );
+        }
 
         return response()->json([
             'physician_profile' => $physicianProfile,

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MedicalFile;
 use App\Models\PhysicianProfile;
 use App\Models\User;
+use App\Services\AppNotifier;
 use Illuminate\Http\Request;
 
 class PhysicianProfileController extends Controller
@@ -95,6 +96,14 @@ class PhysicianProfileController extends Controller
             $profile->rejection_reason = null;
             $profile->verified_at = null;
             $profile->verified_by = null;
+
+            AppNotifier::notifyAdmins(
+                'إعادة إرسال طلب توثيق',
+                "الدكتور {$user->name} أعاد إرسال طلب التوثيق للمراجعة.",
+                '/admin/physicians',
+                'physician_resubmit',
+                ['user_id' => $user->id],
+            );
         }
 
         $profile->save();

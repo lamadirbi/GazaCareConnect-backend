@@ -8,6 +8,7 @@ use App\Models\ConsultationMessage;
 use App\Models\MedicalFile;
 use App\Models\PhysicianProfile;
 use App\Models\User;
+use App\Services\AppNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -79,6 +80,18 @@ class ConsultationController extends Controller
 
         $consultation->physician_id = $user->id;
         $consultation->save();
+
+        $consultation->load('patient:id,name');
+        if ($consultation->patient) {
+            AppNotifier::notify(
+                $consultation->patient,
+                'تم استلام استشارتك',
+                "الدكتور {$user->name} استلم استشارتك #{$consultation->id}.",
+                "/consultations/{$consultation->id}",
+                'consultation_claimed',
+                ['consultation_id' => $consultation->id],
+            );
+        }
 
         return response()->json([
             'consultation' => $consultation->load([
@@ -264,6 +277,26 @@ class ConsultationController extends Controller
             'messages.sender:id,name,role',
         ]);
 
+        if ($role === 'patient' && $consultation->physician) {
+            AppNotifier::notify(
+                $consultation->physician,
+                'رد جديد من المراجع',
+                "{$user->name} أرسل متابعة على الاستشارة #{$consultation->id}.",
+                "/physician/consultations/{$consultation->id}",
+                'consultation_patient_message',
+                ['consultation_id' => $consultation->id],
+            );
+        } elseif ($role === 'physician' && $consultation->patient) {
+            AppNotifier::notify(
+                $consultation->patient,
+                'رد جديد من الطبيب',
+                "الدكتور {$user->name} رد على استشارتك #{$consultation->id}.",
+                "/consultations/{$consultation->id}",
+                'consultation_physician_message',
+                ['consultation_id' => $consultation->id],
+            );
+        }
+
         return response()->json([
             'message' => $message->load('sender:id,name,role'),
             'consultation' => $consultation,
@@ -323,6 +356,18 @@ class ConsultationController extends Controller
                 ->update(['consultation_id' => $consultation->id]);
         }
 
+        $consultation->load(['patient:id,name', 'physician:id,name']);
+        if ($mode === Consultation::MODE_DIRECT && $consultation->physician) {
+            AppNotifier::notify(
+                $consultation->physician,
+                'استشارة جديدة موجّهة إليك',
+                "استشارة جديدة من {$user->name} (#{$consultation->id}).",
+                "/physician/consultations/{$consultation->id}",
+                'consultation_direct',
+                ['consultation_id' => $consultation->id],
+            );
+        }
+
         return response()->json([
             'consultation' => $consultation->load([
                 'patient:id,name,role',
@@ -374,6 +419,17 @@ class ConsultationController extends Controller
             'messages.sender:id,name,role',
         ]);
         $this->hydratePhysicianCertificateFiles($consultation);
+
+        if ($consultation->patient) {
+            AppNotifier::notify(
+                $consultation->patient,
+                'رد الطبيب على استشارتك',
+                "الدكتور {$user->name} أرسل توصياته للاستشارة #{$consultation->id}.",
+                "/consultations/{$consultation->id}",
+                'consultation_replied',
+                ['consultation_id' => $consultation->id],
+            );
+        }
 
         return response()->json([
             'consultation' => $consultation,

@@ -15,6 +15,7 @@ use Illuminate\Validation\Rule;
 
 class ConsultationController extends Controller
 {
+    protected const PATIENT_SELECT = 'id,name,email,role,caregiver_mode_enabled,caregiver_relationship';
     protected function hydratePhysicianCertificateFiles(Consultation $consultation): void
     {
         $pp = $consultation->physician?->physicianProfile;
@@ -48,7 +49,7 @@ class ConsultationController extends Controller
             ->where('assignment_mode', Consultation::MODE_QUEUE)
             ->where('status', 'pending')
             ->with([
-                'patient:id,name,email,role',
+                'patient:'.self::PATIENT_SELECT,
                 'patient.medicalProfile',
             ])
             ->orderByDesc('submitted_at')
@@ -81,7 +82,7 @@ class ConsultationController extends Controller
         $consultation->physician_id = $user->id;
         $consultation->save();
 
-        $consultation->load('patient:id,name');
+        $consultation->load('patient:id,name,caregiver_mode_enabled,caregiver_relationship');
         if ($consultation->patient) {
             AppNotifier::notify(
                 $consultation->patient,
@@ -95,7 +96,7 @@ class ConsultationController extends Controller
 
         return response()->json([
             'consultation' => $consultation->load([
-                'patient:id,name,email,role',
+                'patient:'.self::PATIENT_SELECT,
                 'patient.medicalProfile',
                 'physician:id,name,email,role',
                 'physician.physicianProfile',
@@ -109,7 +110,7 @@ class ConsultationController extends Controller
         $user = $request->user();
 
         $query = Consultation::query()->with([
-            'patient:id,name,email,role',
+            'patient:'.self::PATIENT_SELECT,
             'patient.medicalProfile',
             'physician:id,name,email,role',
             'physician.physicianProfile',
@@ -149,7 +150,7 @@ class ConsultationController extends Controller
         }
 
         $consultation->load([
-            'patient:id,name,email,role',
+            'patient:'.self::PATIENT_SELECT,
             'patient.medicalProfile',
             'physician:id,name,email,role',
             'physician.physicianProfile.certificateFile:id,original_name,mime_type,file_kind,size_bytes,created_at',
@@ -219,7 +220,7 @@ class ConsultationController extends Controller
 
         return response()->json([
             'consultation' => $consultation->fresh()->load([
-                'patient:id,name,role',
+                'patient:id,name,role,caregiver_mode_enabled,caregiver_relationship',
                 'patient.medicalProfile',
                 'physician:id,name,role',
                 'medicalFiles:id,owner_user_id,uploaded_by_user_id,consultation_id,original_name,mime_type,size_bytes,file_kind,created_at',
@@ -269,7 +270,7 @@ class ConsultationController extends Controller
         ]);
 
         $consultation->load([
-            'patient:id,name,role',
+            'patient:id,name,role,caregiver_mode_enabled,caregiver_relationship',
             'patient.medicalProfile',
             'physician:id,name,role',
             'physician.physicianProfile',
@@ -363,7 +364,7 @@ class ConsultationController extends Controller
                 ->update(['consultation_id' => $consultation->id]);
         }
 
-        $consultation->load(['patient:id,name', 'physician:id,name']);
+        $consultation->load(['patient:id,name,caregiver_mode_enabled,caregiver_relationship', 'physician:id,name']);
         if ($mode === Consultation::MODE_DIRECT && $consultation->physician) {
             AppNotifier::notify(
                 $consultation->physician,
@@ -377,7 +378,7 @@ class ConsultationController extends Controller
 
         return response()->json([
             'consultation' => $consultation->load([
-                'patient:id,name,role',
+                'patient:id,name,role,caregiver_mode_enabled,caregiver_relationship',
                 'physician:id,name,role',
                 'physician.physicianProfile',
             ]),
@@ -400,6 +401,11 @@ class ConsultationController extends Controller
         $data = $request->validate([
             'response' => ['required', 'string', 'min:5'],
             'mark_completed' => ['nullable', 'boolean'],
+            'case_severity' => ['required', 'string', Rule::in([
+                Consultation::SEVERITY_MILD,
+                Consultation::SEVERITY_MODERATE,
+                Consultation::SEVERITY_CRITICAL,
+            ])],
         ]);
 
         $hadPhysicianReply = filled($consultation->physician_response)
@@ -407,6 +413,7 @@ class ConsultationController extends Controller
 
         $consultation->physician_id = $user->id;
         $consultation->physician_response = $data['response'];
+        $consultation->case_severity = $data['case_severity'];
         $consultation->responded_at = Carbon::now();
         if (($data['mark_completed'] ?? true) === true) {
             $consultation->status = 'completed';
@@ -421,7 +428,7 @@ class ConsultationController extends Controller
         ]);
 
         $consultation->load([
-            'patient:id,name,role',
+            'patient:id,name,role,caregiver_mode_enabled,caregiver_relationship',
             'patient.medicalProfile',
             'physician:id,name,role',
             'physician.physicianProfile.certificateFile:id,original_name,mime_type,file_kind,size_bytes,created_at',

@@ -34,6 +34,8 @@ class User extends Authenticatable
         'phone',
         'is_disabled',
         'disabled_at',
+        'caregiver_mode_enabled',
+        'caregiver_relationship',
     ];
 
     /**
@@ -58,6 +60,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_disabled' => 'boolean',
             'disabled_at' => 'datetime',
+            'caregiver_mode_enabled' => 'boolean',
         ];
     }
 

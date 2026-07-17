@@ -14,6 +14,10 @@ class Consultation extends Model
     public const MODE_QUEUE = 'queue';
     public const MODE_DIRECT = 'direct';
 
+    public const SEVERITY_MILD = 'mild';
+    public const SEVERITY_MODERATE = 'moderate';
+    public const SEVERITY_CRITICAL = 'critical';
+
     protected $fillable = [
         'patient_id',
         'physician_id',
@@ -23,6 +27,7 @@ class Consultation extends Model
         'submitted_at',
         'responded_at',
         'physician_response',
+        'case_severity',
     ];
 
     protected function casts(): array

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\CaregiverModeController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\MedicalFileController;
@@ -46,6 +47,9 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/medical-profile', [MedicalProfileController::class, 'show']);
         Route::put('/medical-profile', [MedicalProfileController::class, 'update']);
+
+        Route::patch('/caregiver-mode', [CaregiverModeController::class, 'update'])
+            ->middleware('role:patient');
 
         Route::get('/physician-profile', [PhysicianProfileController::class, 'show'])
             ->middleware('role:physician');

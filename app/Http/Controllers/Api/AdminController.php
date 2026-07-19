@@ -17,7 +17,10 @@ class AdminController extends Controller
         $status = $request->query('status');
 
         $query = User::query()
-            ->with(['physicianProfile:id,user_id,specialty,verification_status'])
+            ->with(['physicianProfile' => function ($q) {
+                $q->select('id', 'user_id', 'specialty', 'verification_status', 'verified_at', 'verified_by')
+                    ->with('verifier:id,name');
+            }])
             ->orderByDesc('created_at');
 
         if (is_string($role) && $role !== '') {

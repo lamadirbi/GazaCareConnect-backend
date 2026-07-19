@@ -39,6 +39,11 @@ class PhysicianProfile extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function verifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by');
+    }
+
     public function certificateFile(): BelongsTo
     {
         return $this->belongsTo(MedicalFile::class, 'certificate_file_id');
